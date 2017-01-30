@@ -1,0 +1,7 @@
+.DS_STORE
+.psql.gz
+config.json
+*.pyc
+.idea/
+.vscode/*
+*.egg-info/
