@@ -18,10 +18,7 @@ def start(args):
 
 def pull(args):
     """Pulls specified (or all) images built on DockerHub"""
-    services = utils.get_list_of_services(args.services)
-    utils.construct_docker_compose_file(services)
-    utils.run_docker_compose_command('pull')
-    utils.remove_docker_compose_file()
+    utils.dockerhub_pull(args.services)
 
 
 def gitpull(args):

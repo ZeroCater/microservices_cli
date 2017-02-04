@@ -88,6 +88,16 @@ def start_docker_compose_services():
         remove_docker_compose_file()
 
 
+def dockerhub_pull(services):
+    """
+    Pull DockerHub images for the passed services.
+    """
+    docker_services = get_list_of_services(services)
+    construct_docker_compose_file(docker_services)
+    run_docker_compose_command('pull')
+    remove_docker_compose_file()
+
+
 def git_clone_repo(remote_url, target_dir):
     """
     Clones a remote repository into a local directory.
