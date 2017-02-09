@@ -106,10 +106,11 @@ def git_clone_repo(remote_url, target_dir):
     git.Repo.clone_from(remote_url, target_dir)
 
 
-def git_pull_master(service):
+def git_pull_master(service, keep_branch=False):
     """
-    Takes a service, switches to master, pulls code, and switches back to original
-    branch if it was originally on a branch other than master.
+    Takes a service, switches to master, and pulls code. If the keep_branch argument
+    is passed, it will switch back to the original branch if it was on anything other
+    than master.
     """
     log.info('[{}] pulling master'.format(service))
     repo = git.Repo(os.path.join(BASE_DIR, service))
@@ -120,7 +121,9 @@ def git_pull_master(service):
         try:
             repo.heads.master.checkout()
             repo.remotes.origin.pull()
-            current_branch.checkout()
+
+            if keep_branch:
+                current_branch.checkout()
         except git.exc.GitCommandError:
             log.error('Could not checkout master for service [{}], try checking in or stashing changes'.format(service))
             sys.exit(1)
