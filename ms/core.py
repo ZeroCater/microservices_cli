@@ -41,6 +41,17 @@ def run(args):
     utils.run_one_off_command(args.directory, args.command, args.service)
 
 
+def kill(args):
+    """
+    Stop any running Docker containers and remove the temporary docker-compose
+    file if it exists
+    """
+    utils.kill_all_docker_containers()
+
+    if utils.check_for_docker_compose_file():
+        utils.remove_docker_compose_file()
+
+
 def add_commands(subparsers):
     attach_parser = subparsers.add_parser('attach')
     attach_parser.add_argument('service')
@@ -65,3 +76,6 @@ def add_commands(subparsers):
     run_parser.add_argument('directory')
     run_parser.add_argument('command', nargs='*')
     run_parser.set_defaults(func=run)
+
+    kill_parser = subparsers.add_parser('kill')
+    kill_parser.set_defaults(func=kill)

@@ -234,3 +234,14 @@ def run_one_off_command(directory, command, service=None):
     construct_docker_compose_file([directory])
     run_docker_compose_command(['run', '--rm', service_name] + command)
     remove_docker_compose_file()
+
+
+def kill_all_docker_containers():
+    """
+    Find all running Docker containers and kill them
+    """
+    running_container_ids = subprocess.check_output(['docker', 'ps', '-q'])
+    running_container_ids = running_container_ids.strip().split()  # Remove trailing \n and convert to list
+
+    if running_container_ids:
+        subprocess.call(['docker', 'kill'] + running_container_ids)
