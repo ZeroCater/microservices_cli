@@ -2,6 +2,7 @@ import logging
 import os
 import subprocess
 import sys
+from multiprocessing import Process, Queue
 
 import git
 import yaml
@@ -90,11 +91,20 @@ def start_docker_compose_services():
 
 def dockerhub_pull(services):
     """
-    Pull DockerHub images for the passed services.
+    Pull DockerHub images for the passed services in parallel.
     """
     docker_services = get_list_of_services(services)
-    construct_docker_compose_file(docker_services)
-    run_docker_compose_command('pull')
+    service_list = construct_docker_compose_file(docker_services)
+
+    procs = []
+    for service in service_list:
+        process = Process(target=run_docker_compose_command, args=(['pull', service],))
+        process.start()
+        procs.append(process)
+
+    for p in procs:
+        p.join()
+
     remove_docker_compose_file()
 
 
