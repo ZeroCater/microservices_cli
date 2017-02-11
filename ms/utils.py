@@ -231,10 +231,18 @@ def run_one_off_command(directory, command, service=None):
         log.info('docker-compose already running, consider attaching to a running container')
         sys.exit(0)
 
-    service = 'web' if not service else service  # If no --service, default to web
+    project_services = construct_docker_compose_file([directory])
+    project_services = filter(lambda x: x not in SINGLETON_SERVICES, project_services)
 
-    service_name = get_full_service_name(directory, service)
-    construct_docker_compose_file([directory])
+    if service:  # Always use passed in service if present
+        service_name = get_full_service_name(directory, service)
+    else:
+        if len(project_services) == 1:  # If only one service in directory (like worker), use that
+            service_name = project_services[0]
+        else:
+            service = 'web' if not service else service  # If no --service, default to web
+            service_name = get_full_service_name(directory, service)
+
     run_docker_compose_command(['run', '--rm', service_name] + command)
     remove_docker_compose_file()
 
