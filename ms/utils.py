@@ -189,6 +189,9 @@ def construct_docker_compose_file(services):
     with open(DOCKER_COMPOSE_FILE, 'w') as outfile:
         outfile.write(yaml.safe_dump(data))
 
+    # Return list of services
+    return data['services'].keys()
+
 
 def check_services(services):
     """
