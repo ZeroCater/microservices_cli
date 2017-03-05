@@ -62,7 +62,7 @@ def add_commands(subparsers):
     start_parser.set_defaults(func=start)
 
     gitpull_parser = subparsers.add_parser('gitpull')
-    gitpull_parser.add_argument('--keep', action='store_true', default='False',
+    gitpull_parser.add_argument('--keep', action='store_true', default=False,
                                 help='Return to original branch if not on master after pull')
     gitpull_parser.add_argument('services', nargs='*')
     gitpull_parser.set_defaults(func=gitpull)
