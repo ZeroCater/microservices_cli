@@ -129,7 +129,7 @@ def git_pull_master(service, keep_branch=False):
         current_branch = repo.active_branch
 
         try:
-            repo.heads.master.checkout()
+            repo.git.checkout('master')
             repo.remotes.origin.pull()
 
             if keep_branch:
