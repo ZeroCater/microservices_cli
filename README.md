@@ -44,6 +44,11 @@ Usage: `ms gitpull [-h] [services [services ...]]`
  
 Gitpull will take a list of services (defaulting to all if no services are passed) and pull the master branch for each of the repositories. If any repositories are  on a branch that is not master, they will checkout master, pull, and then checkout the original branch leaving the repository as it was before the pull.
 
+### logs
+Usage: `ms logs [-f] [services [services ...]]`
+
+Logs will output a service's logs, (defaulting to all services if no services are passed). The **-f** option will prevent the command from exiting, and will continue to output any new content in the logs.
+
 ## Config options
 
 There are a number of configuration variables that can be set in the `~/.ms` file to change the way the CLI behaves.
