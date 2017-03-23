@@ -41,6 +41,11 @@ def run(args):
     utils.run_one_off_command(args.directory, args.command, args.service)
 
 
+def logs(args):
+    """Display logs for one or more running containers"""
+    utils.show_logs_for_running_containers(args.services, args.f)
+
+
 def kill(args):
     """
     Stop any running Docker containers and remove the temporary docker-compose
@@ -76,6 +81,11 @@ def add_commands(subparsers):
     run_parser.add_argument('directory')
     run_parser.add_argument('command', nargs='*')
     run_parser.set_defaults(func=run)
+
+    logs_parser = subparsers.add_parser('logs')
+    logs_parser.add_argument('-f', action='store_true', help='Continuously tail the running container log')
+    logs_parser.add_argument('services', nargs='*')
+    logs_parser.set_defaults(func=logs)
 
     kill_parser = subparsers.add_parser('kill')
     kill_parser.set_defaults(func=kill)
