@@ -16,9 +16,10 @@ def main():
 
     # Import and load any commands for plugins specified in settings
     plugins = Config.get('PLUGINS')
-    for plugin in plugins:
-        module = importlib.import_module(plugin)
-        module.add_commands(subparsers)
+    if plugins:
+        for plugin in plugins:
+            module = importlib.import_module(plugin)
+            module.add_commands(subparsers)
 
     args = parser.parse_args()
     args.func(args)
