@@ -12,7 +12,7 @@ from config import Config
 log = logging.getLogger(__name__)
 
 # Config
-BASE_DIR = Config.get('BASE_DIR')
+BASE_DIR = os.path.abspath(os.path.expanduser(Config.get('BASE_DIR')))
 DOCKER_COMPOSE_FILE = Config.get(
     'DOCKER_COMPOSE_FILE', os.path.join(BASE_DIR, 'docker-compose-tmp.yml'))
 
