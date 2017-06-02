@@ -135,7 +135,8 @@ def git_pull_master(service, keep_branch=False):
             if keep_branch:
                 current_branch.checkout()
         except git.exc.GitCommandError:
-            log.error('Could not checkout master for service [{}], try checking in or stashing changes'.format(service))
+            log.error(
+                'Could not checkout master for service [{}], try checking in or stashing changes'.format(service))
             sys.exit(1)
     else:
         repo.remotes.origin.pull()
@@ -164,7 +165,12 @@ def construct_docker_compose_file(services):
     }
 
     for service in services:
-        with open(os.path.join(BASE_DIR, service, 'docker-compose.yml'), 'r') as infile:
+        service_path = os.path.join(BASE_DIR, service, 'docker-compose.yml')
+        if not os.path.isfile(service_path):
+            log.error('Could not find docker-compose file for service {} in the path {}'.format(service, service_path))
+            sys.exit(1)
+
+        with open(service_path, 'r') as infile:
             individual_services = yaml.load(infile)['services'].keys()
 
         # Check for env override file
