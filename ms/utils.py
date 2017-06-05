@@ -135,7 +135,8 @@ def git_pull_master(service, keep_branch=False):
             if keep_branch:
                 current_branch.checkout()
         except git.exc.GitCommandError:
-            log.error('Could not checkout master for service [{}], try checking in or stashing changes'.format(service))
+            log.error(
+                'Could not checkout master for service [{}], try checking in or stashing changes'.format(service))
             sys.exit(1)
     else:
         repo.remotes.origin.pull()
@@ -164,14 +165,20 @@ def construct_docker_compose_file(services):
     }
 
     for service in services:
-        with open(os.path.join(BASE_DIR, service, 'docker-compose.yml'), 'r') as infile:
+        docker_compose_path = os.path.join(BASE_DIR, service, 'docker-compose.yml')
+        if not os.path.isfile(docker_compose_path):
+            log.error('Could not find docker-compose file for service {} in the path {}'.format(service, docker_compose_path))
+            sys.exit(1)
+
+        with open(docker_compose_path, 'r') as infile:
             individual_services = yaml.load(infile)['services'].keys()
 
         # Check for env override file
         #   Waiting on an optional env file to obviate the need for this: https://github.com/docker/compose/pull/3955
-        env_override = os.path.isfile(os.path.join(BASE_DIR, service, '.env.local'))
+        local_env_path = os.path.join(BASE_DIR, service, '.env.local')
+        env_override = os.path.isfile(local_env_path)
         if env_override:
-            with open(os.path.join(BASE_DIR, service, '.env.local')) as f:
+            with open(local_env_path) as f:
                 env_override_block = [line.strip() for line in f if line != '\n' and not line.startswith('#')]
 
         for s in individual_services:
@@ -186,7 +193,7 @@ def construct_docker_compose_file(services):
             # Construct the service entry in the docker-compose outfile
             data['services'][service_name] = {
                 'extends': {
-                    'file': os.path.join(BASE_DIR, service, 'docker-compose.yml'),
+                    'file': docker_compose_path,
                     'service': s
                 }
             }
