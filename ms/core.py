@@ -1,6 +1,6 @@
 import logging
 import sys
-import utils
+from ms import utils
 
 log = logging.getLogger(__name__)
 

@@ -7,7 +7,7 @@ from multiprocessing import Process, Queue
 import git
 import yaml
 
-from config import Config
+from ms.config import Config
 
 log = logging.getLogger(__name__)
 
@@ -249,7 +249,7 @@ def run_one_off_command(directory, command, service=None):
         sys.exit(0)
 
     project_services = construct_docker_compose_file([directory])
-    project_services = filter(lambda x: x not in SINGLETON_SERVICES, project_services)
+    project_services = list(filter(lambda x: x not in SINGLETON_SERVICES, project_services))
 
     if service:  # Always use passed in service if present
         service_name = get_full_service_name(directory, service)

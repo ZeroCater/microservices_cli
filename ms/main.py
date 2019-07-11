@@ -2,8 +2,8 @@ import argparse
 import importlib
 import logging
 
-import core
-from config import Config
+from ms import core
+from ms.config import Config
 
 
 def main():
