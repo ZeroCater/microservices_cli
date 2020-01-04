@@ -60,6 +60,15 @@ def docker_compose_attach(service):
         sys.exit(1)
 
 
+def docker_compose_restart(service):
+    """Attempt to restart a running docker service."""
+    try:
+        run_docker_compose_command('restart {}'.format(service))
+    except subprocess.CalledProcessError:
+        log.error('Could not restart [{}] service, is it running?'.format(service))
+        sys.exit(1)
+
+
 def get_list_of_services(services):
     """
     Takes a list of services/constellation from the command line and maps them to the preferred names.

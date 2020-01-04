@@ -36,6 +36,12 @@ def attach(args):
     utils.docker_compose_attach(args.service)
 
 
+def restart(args):
+    """Restarts a running docker service"""
+    if not utils.check_for_docker_compose_file():
+        pass
+    utils.docker_compose_restart(args.service)
+
 def run(args):
     """Run a command inside a one-off Docker container"""
     utils.run_one_off_command(args.directory, args.command, args.service)
@@ -89,3 +95,7 @@ def add_commands(subparsers):
 
     kill_parser = subparsers.add_parser('kill')
     kill_parser.set_defaults(func=kill)
+
+    restart_parser = subparsers.add_parser('restart')
+    restart_parser.add_argument('service')
+    restart_parser.set_defaults(func=restart)
