@@ -284,16 +284,23 @@ def kill_all_docker_containers():
         subprocess.call(['docker', 'kill'] + running_container_ids)
 
 
-def show_logs_for_running_containers(services, tail):
+def show_logs_for_running_containers(services, tail, tail_count):
     """Run the docker-compose logs command for one or more running containers"""
     if not check_for_docker_compose_file():
         log.info('No running containers found')
         sys.exit(1)
 
     try:
+        args = ['logs']
+
         if tail:
-            run_docker_compose_command(['logs', '-f'] + services)
-        else:
-            run_docker_compose_command(['logs'] + services)
+            args.append('-f')
+
+        if tail_count:
+            args.append(f'--tail={tail_count}')
+
+        final_result = args + services
+
+        run_docker_compose_command(final_result)
     except KeyboardInterrupt:
         sys.exit(0)
