@@ -49,7 +49,7 @@ def run(args):
 
 def logs(args):
     """Display logs for one or more running containers"""
-    utils.show_logs_for_running_containers(args.services, args.f)
+    utils.show_logs_for_running_containers(args.services, args.f, args.t)
 
 
 def kill(args):
@@ -90,6 +90,8 @@ def add_commands(subparsers):
 
     logs_parser = subparsers.add_parser('logs')
     logs_parser.add_argument('-f', action='store_true', help='Continuously tail the running container log')
+    logs_parser.add_argument('-t', help='Number of lines to show from the end of the logs for each container. (e.g. '
+                                        '-t 400)')
     logs_parser.add_argument('services', nargs='*')
     logs_parser.set_defaults(func=logs)
 
