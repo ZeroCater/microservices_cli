@@ -21,7 +21,7 @@ SERVICE_CONSTELLATIONS = Config.get('SERVICE_CONSTELLATIONS', {})
 SINGLETON_SERVICES = Config.get('SINGLETON_SERVICES', {})
 
 
-def run_docker_compose_command(cmd):
+def run_docker_compose_command(cmd, verbose=False, log_level=None):
     """
     Run a Docker Compose command
 
@@ -32,10 +32,29 @@ def run_docker_compose_command(cmd):
     # Try to avoid docker-compose up read timeout error when starting a lot of containers
     os.environ['COMPOSE_HTTP_TIMEOUT'] = '300'
 
+    args = ['docker-compose']
+
+    if verbose:
+        args += ['--verbose']
+
+    if log_level:
+        args += ['--log-level', log_level]
+
+    args += ['-f', DOCKER_COMPOSE_FILE]
+
     if type(cmd) == list:  # If passed as an array, use arguments grouped as passed
-        subprocess.call(['docker-compose', '-f', DOCKER_COMPOSE_FILE] + cmd)
+        args += cmd
     else:
-        subprocess.call(['docker-compose', '-f', DOCKER_COMPOSE_FILE] + cmd.split(' '))
+        args += cmd.split(' ')
+
+    subprocess.call(args)
+
+
+def run_docker_command(cmd):
+    if type(cmd) == list:  # If passed as an array, use arguments grouped as passed
+        subprocess.call(['docker'] + cmd)
+    else:
+        subprocess.call(['docker'] + cmd.split(' '))
 
 
 def remove_docker_compose_file():
@@ -87,15 +106,42 @@ def get_list_of_services(services):
     return services
 
 
-def start_docker_compose_services():
+def start_docker_compose_services(args, mapped_services):
     """
     Runs docker-compose up for services defined in the temporary docker-compose file,
     remove the file when halted with Ctrl+C.
     """
     try:
-        run_docker_compose_command('up')
+        if not args.serial:
+            run_docker_compose_command(['up', '--remove-orphans'], log_level=args.l, verbose=args.v)
+        else:
+            for service in mapped_services:
+                run_docker_compose_command(['up', service, '--remove-orphans'], log_level=args.l, verbose=args.v)
+    except KeyboardInterrupt:
+        # remove_docker_compose_file()
+        pass
+
+def kill_docker_compose_service(args):
+    run_docker_compose_command(['up', '--remove-orphans'], log_level=args.l, verbose=args.v)
+
+
+def stop_down_docker_compose_services(args):
+    """
+    Runs docker-compose up for services defined in the temporary docker-compose file,
+    remove the file when halted with Ctrl+C.
+    """
+    try:
+        run_docker_compose_command(['down', '--remove-orphans'], log_level=args.l, verbose=args.v)
     except KeyboardInterrupt:
         remove_docker_compose_file()
+
+
+def top_docker_compose_services(services):
+    """
+    Runs docker-compose up for services defined in the temporary docker-compose file,
+    remove the file when halted with Ctrl+C.
+    """
+    run_docker_compose_command(['top'] + services)
 
 
 def dockerhub_pull(services):
@@ -273,15 +319,54 @@ def run_one_off_command(directory, command, service=None):
     remove_docker_compose_file()
 
 
-def kill_all_docker_containers():
+def kill_all_docker_containers(kill_celery_workers):
     """
-    Find all running Docker containers and kill them
+    Find all running Docker containers and kill them. Optionally kills celery processes in containers
+    with name containing 'worker'.
     """
-    running_container_ids = subprocess.check_output(['docker', 'ps', '-q'])
-    running_container_ids = running_container_ids.strip().split()  # Remove trailing \n and convert to list
+    if kill_celery_workers:
+        kill_worker_celery_process()
+
+    running_container_ids = get_running_container_ids()
 
     if running_container_ids:
         subprocess.call(['docker', 'kill'] + running_container_ids)
+
+
+def stop_all_docker_containers(kill_celery_workers):
+    """
+    Find all running Docker containers and kill them. Optionally kills celery processes in containers
+    with name containing 'worker'.
+    """
+    if kill_celery_workers:
+        kill_worker_celery_process()
+
+    running_container_ids = get_running_container_ids()
+
+    if running_container_ids:
+        subprocess.call(['docker', 'stop'] + running_container_ids)
+
+
+def get_running_container_ids():
+    running_container_ids = subprocess.check_output(['docker', 'ps', '-q'])
+    running_container_ids = running_container_ids.strip().split()  # Remove trailing \n and convert to list
+
+    return running_container_ids
+
+
+def kill_worker_celery_process():
+    p1 = subprocess.Popen(['docker', 'ps', '--format', '{{.Names}}'], stdout=subprocess.PIPE)
+    p2 = subprocess.Popen(['grep', 'worker'], stdin=p1.stdout, stdout=subprocess.PIPE)
+    p1.stdout.close()  # Allow p1 to receive a SIGPIPE if p2 exits.
+    running_worker_container_names = p2.communicate()[0].strip().splitlines()
+    log.info(f'Worker containers: {running_worker_container_names}')
+
+    if running_worker_container_names:
+        for worker_container_name in running_worker_container_names:
+            subprocess.call(['docker', 'exec', worker_container_name, 'sh', '-c', 'pkill celery'])
+            # subprocess.Popen(['docker', 'exec', worker_container_name, 'sh', '-c', 'pkill celery'])
+
+        log.info(f'Done killing celery.')
 
 
 def show_logs_for_running_containers(services, tail, tail_count):
@@ -302,5 +387,22 @@ def show_logs_for_running_containers(services, tail, tail_count):
         final_result = args + services
 
         run_docker_compose_command(final_result)
+    except KeyboardInterrupt:
+        sys.exit(0)
+
+
+def list_all_docker_containers(ps_filter):
+    """
+    List all docker containers by their name, status, command and state.
+
+    Specified filter is passed along to 'docker ps'
+    """
+    try:
+        args = ['ps', '--format', 'table {{.Names}}\t{{.Status}}\t{{.Command}}\t{{.State}}']
+
+        if ps_filter:
+            args.extend(['--filter', f'name={ps_filter}'])
+
+        run_docker_command(args)
     except KeyboardInterrupt:
         sys.exit(0)
