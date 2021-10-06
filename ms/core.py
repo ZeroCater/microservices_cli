@@ -5,6 +5,18 @@ from ms import utils
 log = logging.getLogger(__name__)
 
 
+def init(args):
+    """
+    Create the configuration file.
+    """
+    services = utils.get_list_of_services(args.services)
+    log.debug(f'services: {services}')
+    mapped_services = utils.construct_docker_compose_file(services)
+    log.debug(f'mapped services: {mapped_services}')
+
+    utils.print_docker_compose_path()
+
+
 def start(args):
     """
     Start the service(s) passed in the command line. If no services are passed,
@@ -12,8 +24,23 @@ def start(args):
     file and removes it on Ctrl+c.
     """
     services = utils.get_list_of_services(args.services)
-    utils.construct_docker_compose_file(services)
-    utils.start_docker_compose_services()
+    log.debug(f'services: {services}')
+    mapped_services = utils.construct_docker_compose_file(services)
+    utils.start_docker_compose_services(args, mapped_services)
+
+
+def down(args):
+    services = utils.get_list_of_services(args.services)
+    log.debug(f'services: {services}')
+    mapped_services = utils.construct_docker_compose_file(services)
+    utils.stop_down_docker_compose_services(args, mapped_services)
+
+    if utils.should_remove_docker_compose_file():
+        utils.remove_docker_compose_file()
+
+
+def top(args):
+    utils.top_docker_compose_services(args.services)
 
 
 def pull(args):
@@ -42,6 +69,7 @@ def restart(args):
         pass
     utils.docker_compose_restart(args.service)
 
+
 def run(args):
     """Run a command inside a one-off Docker container"""
     utils.run_one_off_command(args.directory, args.command, args.service)
@@ -52,15 +80,40 @@ def logs(args):
     utils.show_logs_for_running_containers(args.services, args.f, args.t)
 
 
+def list_containers(args):
+    """Lists the name of all containers and status"""
+    utils.list_all_docker_containers(args.filter)
+
+
 def kill(args):
     """
     Stop any running Docker containers and remove the temporary docker-compose
     file if it exists
     """
-    utils.kill_all_docker_containers()
+    if args.service:
+        utils.run_docker_compose_command(['kill', args.service])
+    else:
+        utils.kill_all_docker_containers()
 
-    if utils.check_for_docker_compose_file():
+    if args.keep:
+        log.info('Keeping docker-compose-tmp.yml')
+    elif utils.should_remove_docker_compose_file():
         utils.remove_docker_compose_file()
+
+
+def stop(args):
+    """
+    Stop any running Docker containers and remove the temporary docker-compose
+    file if it exists
+    """
+    utils.stop_all_docker_containers()
+
+    if utils.should_remove_docker_compose_file():
+        utils.remove_docker_compose_file()
+
+
+def config(args):
+    utils.print_config()
 
 
 def add_commands(subparsers):
@@ -68,9 +121,29 @@ def add_commands(subparsers):
     attach_parser.add_argument('service')
     attach_parser.set_defaults(func=attach)
 
+    init_parser = subparsers.add_parser('init', help='Create the configuration file')
+    init_parser.add_argument('services', nargs='*')
+    init_parser.set_defaults(func=init)
+
     start_parser = subparsers.add_parser('start')
     start_parser.add_argument('services', nargs='*')
+    start_parser.add_argument('--ignore', nargs='*', help='Space separated list of service to ignore.')
+    start_parser.add_argument('-v', action='store_true',
+                              help='Verbose output')
+    start_parser.add_argument('-l', help='Log level: (DEBUG, INFO, WARNING, ERROR, CRITICAL)')
     start_parser.set_defaults(func=start)
+
+    down_parser = subparsers.add_parser('down')
+    down_parser.add_argument('services', nargs='*')
+    down_parser.add_argument('--ignore', nargs='*')
+    down_parser.add_argument('-v', action='store_true',
+                             help='Verbose output')
+    down_parser.add_argument('-l', help='Log level: (DEBUG, INFO, WARNING, ERROR, CRITICAL)')
+    down_parser.set_defaults(func=down)
+
+    top_parser = subparsers.add_parser('top', help='Display the running processes for each service.')
+    top_parser.add_argument('services', nargs='*')
+    top_parser.set_defaults(func=top)
 
     gitpull_parser = subparsers.add_parser('gitpull')
     gitpull_parser.add_argument('--keep', action='store_true', default=False,
@@ -95,9 +168,22 @@ def add_commands(subparsers):
     logs_parser.add_argument('services', nargs='*')
     logs_parser.set_defaults(func=logs)
 
+    list_parser = subparsers.add_parser('list')
+    list_parser.add_argument('--filter', help='Filters listed containers by name.')
+    list_parser.set_defaults(func=list_containers)
+
     kill_parser = subparsers.add_parser('kill')
+    kill_parser.add_argument('--keep', action='store_true',
+                             help='Keep temp docker-compose file around.')
+    kill_parser.add_argument('--service', help='Optionally specify a docker-compose service')
     kill_parser.set_defaults(func=kill)
+
+    stop_parser = subparsers.add_parser('stop')
+    stop_parser.set_defaults(func=stop)
 
     restart_parser = subparsers.add_parser('restart')
     restart_parser.add_argument('service')
     restart_parser.set_defaults(func=restart)
+
+    config_parser = subparsers.add_parser('config')
+    config_parser.set_defaults(func=config)
