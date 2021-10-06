@@ -53,9 +53,9 @@ Logs will output a service's logs, (defaulting to all services if no services ar
 
 There are a number of configuration variables that can be set in the `~/.ms` file to change the way the CLI behaves.
 
-### KEEP_DOCKER_COMPOSE_FILE_ON_SHUTDOWN
+### `KEEP_DOCKER_COMPOSE_FILE_ON_SHUTDOWN`
 
-Keep the generated temporary `docker-compose` file around after things like shutting down containers,
+If `true`, keep the generated temporary `docker-compose` file around after things like shutting down containers,
 pressing `Ctrl + C` after starting containers, etc.
 
 Useful if you have a service that loads the file into memory, like running Docker via Pycharm
