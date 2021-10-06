@@ -168,7 +168,7 @@ def add_commands(subparsers):
     logs_parser.add_argument('services', nargs='*')
     logs_parser.set_defaults(func=logs)
 
-    list_parser = subparsers.add_parser('list')
+    list_parser = subparsers.add_parser('list', help='Show container info like "docker ps" but formatted.')
     list_parser.add_argument('--filter', help='Filters listed containers by name.')
     list_parser.set_defaults(func=list_containers)
 
@@ -185,5 +185,5 @@ def add_commands(subparsers):
     restart_parser.add_argument('service')
     restart_parser.set_defaults(func=restart)
 
-    config_parser = subparsers.add_parser('config')
+    config_parser = subparsers.add_parser('config', help='Print generated docker-compose-tmp.yml')
     config_parser.set_defaults(func=config)
