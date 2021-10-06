@@ -29,6 +29,14 @@ The start command will take one or more services and start them simultaneously. 
  
 Additionally, a "service constellation" can be substituted in place of a service name, which can be used to start a group of services instead of needing to type out the names of each service individually. Constellations can be set by specifying them with the `SERVICE_CONSTELLATIONS` configuration option.
 
+### kill
+Usage: `ms kill [--service <service>] [--keep]`
+
+By default, kills all services specified in the generated `docker-compose` file.
+
+Optionally, specify `--service <service>` to only kill that service.
+Optionally, specify `--keep` to keep the generated `docker-compose` around after killing.
+
 ### attach
 Usage: `ms attach [-h] service`
 
@@ -125,6 +133,33 @@ Example:
 
 ```
 "PLUGINS": ["myplugin"]
+```
+
+### Example Config
+
+```
+{
+    "KEEP_DOCKER_COMPOSE_FILE_ON_SHUTDOWN": true,
+    "BASE_DIR": "/Users/jeffrey/code",
+    "SERVICE_MAPPING": {
+        "server_1": "s1",
+        "server_2": "s2",
+        "front_end": "fe"
+    },
+    "SERVICE_CONSTELLATIONS": {
+        "full": [
+            "server_1",
+            "server_2",
+            "front_end"
+        ],
+        "backend": [
+            "server_1",
+            "server_2",
+        ]
+    },
+    "PLUGINS": ["my_cool_plugin"],
+    "SINGLETON_SERVICES": ["memcached", "rabbitmq", "redis"]
+}
 ```
 
 ## Plugin system
