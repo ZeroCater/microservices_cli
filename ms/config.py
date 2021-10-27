@@ -19,7 +19,8 @@ class Config(object):
         with open(config_file) as config:
             try:
                 return json.load(config)
-            except ValueError:
+            except ValueError as ex:
+                print(f'Error loading config file: {ex}')
                 return {}
 
     @staticmethod

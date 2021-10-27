@@ -2,7 +2,8 @@ import logging
 import os
 import subprocess
 import sys
-from multiprocessing import Process, Queue
+import time
+from multiprocessing import Process
 
 import git
 import yaml
@@ -19,9 +20,10 @@ DOCKER_COMPOSE_FILE = Config.get(
 SERVICE_MAPPING = Config.get('SERVICE_MAPPING', {})
 SERVICE_CONSTELLATIONS = Config.get('SERVICE_CONSTELLATIONS', {})
 SINGLETON_SERVICES = Config.get('SINGLETON_SERVICES', {})
+KEEP_DOCKER_COMPOSE_FILE_ON_SHUTDOWN = Config.get('KEEP_DOCKER_COMPOSE_FILE_ON_SHUTDOWN', False)
 
 
-def run_docker_compose_command(cmd):
+def run_docker_compose_command(cmd, verbose=False, log_level=None):
     """
     Run a Docker Compose command
 
@@ -32,10 +34,29 @@ def run_docker_compose_command(cmd):
     # Try to avoid docker-compose up read timeout error when starting a lot of containers
     os.environ['COMPOSE_HTTP_TIMEOUT'] = '300'
 
+    args = ['docker-compose']
+
+    if verbose:
+        args += ['--verbose']
+
+    if log_level:
+        args += ['--log-level', log_level]
+
+    args += ['-f', DOCKER_COMPOSE_FILE]
+
     if type(cmd) == list:  # If passed as an array, use arguments grouped as passed
-        subprocess.call(['docker-compose', '-f', DOCKER_COMPOSE_FILE] + cmd)
+        args += cmd
     else:
-        subprocess.call(['docker-compose', '-f', DOCKER_COMPOSE_FILE] + cmd.split(' '))
+        args += cmd.split(' ')
+
+    subprocess.call(args)
+
+
+def run_docker_command(cmd):
+    if type(cmd) == list:  # If passed as an array, use arguments grouped as passed
+        subprocess.call(['docker'] + cmd)
+    else:
+        subprocess.call(['docker'] + cmd.split(' '))
 
 
 def remove_docker_compose_file():
@@ -49,6 +70,12 @@ def check_for_docker_compose_file():
     suggests that the CLI is not currently running.
     """
     return os.path.isfile(DOCKER_COMPOSE_FILE)
+
+
+def should_remove_docker_compose_file():
+    keep_compose_file = not KEEP_DOCKER_COMPOSE_FILE_ON_SHUTDOWN and check_for_docker_compose_file()
+    log.debug(f'should keep docker-compose-tmp.yml: {keep_compose_file}')
+    return keep_compose_file
 
 
 def docker_compose_attach(service):
@@ -87,15 +114,50 @@ def get_list_of_services(services):
     return services
 
 
-def start_docker_compose_services():
+def start_docker_compose_services(args, mapped_services):
     """
     Runs docker-compose up for services defined in the temporary docker-compose file,
     remove the file when halted with Ctrl+C.
     """
     try:
-        run_docker_compose_command('up')
+        start_time = time.time()
+        mapped_services = list(mapped_services)
+        if args.ignore:
+            for service_to_ignore in args.ignore:
+                mapped_services.remove(service_to_ignore)
+
+        log.debug(f'mapped serviced: {mapped_services}')
+        log.debug(f'ignored: {args.ignore}')
+        run_docker_compose_command(['up'] + mapped_services, log_level=args.l, verbose=args.v)
+
+        log.debug(f'Started in {time.time() - start_time}')
     except KeyboardInterrupt:
+        if should_remove_docker_compose_file():
+            remove_docker_compose_file()
+
+
+def stop_down_docker_compose_services(args, mapped_services):
+    """
+    Runs docker-compose up for services defined in the temporary docker-compose file,
+    remove the file when halted with Ctrl+C.
+    """
+    if args.ignore:
+        for service_to_ignore in args.ignore:
+            mapped_services.remove(service_to_ignore)
+    log.debug(f'mapped serviced: {mapped_services}')
+
+    run_docker_compose_command(['down'] + mapped_services + ['--remove-orphans'], log_level=args.l, verbose=args.v)
+
+    if should_remove_docker_compose_file():
         remove_docker_compose_file()
+
+
+def top_docker_compose_services(services):
+    """
+    Runs docker-compose top for services defined in the temporary docker-compose file,
+    or specified services.
+    """
+    run_docker_compose_command(['top'] + services)
 
 
 def dockerhub_pull(services):
@@ -219,6 +281,10 @@ def construct_docker_compose_file(services):
     return data['services'].keys()
 
 
+def print_docker_compose_path():
+    log.info(f'DOCKER_COMPOSE_FILE: {DOCKER_COMPOSE_FILE}')
+
+
 def check_services(services):
     """
     Takes an array of services and checks to see if the directories exist in the base
@@ -275,13 +341,32 @@ def run_one_off_command(directory, command, service=None):
 
 def kill_all_docker_containers():
     """
-    Find all running Docker containers and kill them
+    Find all running Docker containers and kill them.
     """
+    running_container_ids = get_running_container_ids()
+
+    if running_container_ids:
+        start_time = time.time()
+        subprocess.call(['docker', '-D', '-l', 'debug', 'kill'] + running_container_ids)
+
+        log.debug(f'Killed in {time.time() - start_time}')
+
+
+def stop_all_docker_containers():
+    """
+    Find all running Docker containers and kill them.
+    """
+    running_container_ids = get_running_container_ids()
+
+    if running_container_ids:
+        subprocess.call(['docker', 'stop'] + running_container_ids)
+
+
+def get_running_container_ids():
     running_container_ids = subprocess.check_output(['docker', 'ps', '-q'])
     running_container_ids = running_container_ids.strip().split()  # Remove trailing \n and convert to list
 
-    if running_container_ids:
-        subprocess.call(['docker', 'kill'] + running_container_ids)
+    return running_container_ids
 
 
 def show_logs_for_running_containers(services, tail, tail_count):
@@ -304,3 +389,24 @@ def show_logs_for_running_containers(services, tail, tail_count):
         run_docker_compose_command(final_result)
     except KeyboardInterrupt:
         sys.exit(0)
+
+
+def list_all_docker_containers(ps_filter):
+    """
+    List all docker containers by their name, status, command and state.
+
+    Specified filter is passed along to 'docker ps'
+    """
+    try:
+        args = ['ps', '--format', 'table {{.Names}}\t{{.Status}}\t{{.Command}}\t{{.State}}\t{{.ID}}']
+
+        if ps_filter:
+            args.extend(['--filter', f'name={ps_filter}'])
+
+        run_docker_command(args)
+    except KeyboardInterrupt:
+        sys.exit(0)
+
+
+def print_config():
+    subprocess.call(['cat', f'{DOCKER_COMPOSE_FILE}'])
