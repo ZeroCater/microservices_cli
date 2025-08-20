@@ -242,7 +242,7 @@ def construct_docker_compose_file(services):
             sys.exit(1)
 
         with open(docker_compose_path, 'r') as infile:
-            individual_services = yaml.load(infile)['services'].keys()
+            individual_services = yaml.load(infile, Loader=yaml.SafeLoader)['services'].keys()
 
         # Check for env override file
         #   Waiting on an optional env file to obviate the need for this: https://github.com/docker/compose/pull/3955
