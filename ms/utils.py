@@ -162,21 +162,44 @@ def top_docker_compose_services(services):
 
 def dockerhub_pull(services):
     """
-    Pull DockerHub images for the passed services in parallel.
+    Pull DockerHub images for the passed services. If pull fails, build locally.
     """
     docker_services = get_list_of_services(services)
-    service_list = construct_docker_compose_file(docker_services)
+    failed_services = []
+    frontend_services = ['internal-frontend', 'external-frontend']
 
-    procs = []
-    for service in service_list:
-        process = Process(target=run_docker_compose_command, args=(['pull', service],))
-        process.start()
-        procs.append(process)
+    for service in docker_services:
+        service_dir = os.path.join(BASE_DIR, service)
+        if not os.path.isdir(service_dir) or not os.path.isfile(os.path.join(service_dir, 'docker-compose.yml')):
+            continue
 
-    for p in procs:
-        p.join()
+        log.info('Pulling images for [{}]...'.format(service))
+        if subprocess.call(['docker-compose', 'pull'], cwd=service_dir, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) != 0:
+            if service not in frontend_services:
+                log.warning('Pull failed for [{}], will build locally'.format(service))
+                failed_services.append(service)
+            else:
+                log.info('Skipping build for frontend service [{}]'.format(service))
+        else:
+            log.info('Successfully pulled images for [{}]'.format(service))
 
-    remove_docker_compose_file()
+    if not failed_services:
+        log.info('All images pulled successfully from DockerHub')
+        return
+
+    log.info('Building {} service(s) locally: {}'.format(len(failed_services), ', '.join(failed_services)))
+    original_dir = os.getcwd()
+    try:
+        for service in failed_services:
+            log.info('Building Docker images for [{}]...'.format(service))
+            try:
+                os.chdir(os.path.join(BASE_DIR, service))
+                subprocess.check_call(['docker-compose', 'build'])
+                log.info('Successfully built images for [{}]'.format(service))
+            except subprocess.CalledProcessError as e:
+                log.error('Failed to build images for [{}]: {}'.format(service, e))
+    finally:
+        os.chdir(original_dir)
 
 
 def git_clone_repo(remote_url, target_dir):
